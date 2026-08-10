@@ -29,7 +29,7 @@ export default function LoginPage() {
       return;
     }
 
-    router.push("/"); // → main wiki view once workspace routing exists
+    router.push("/workspace"); // → main wiki view once workspace routing exists
     router.refresh(); // ensures Server Components re-read the new session
   }
 

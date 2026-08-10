@@ -33,10 +33,28 @@ export async function proxy(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   // Route protection: FR-4.1 — every workspace-scoped route requires
-  // an authenticated user. Public pages (/p/[id]) and /login stay open.
+  // an authenticated user. A few routes must stay open even without
+  // a session:
+  //   /login            — obviously, or nobody could ever log in
+  //   /register          — same reasoning, for brand-new signups
+  //   /p/                — public page routes (FR-4.3)
+  //   /auth/callback     — the OAuth ?code= exchange happens here,
+  //                        BEFORE a session exists — gating it would
+  //                        make login itself impossible
+  //   /auth/set-password — invite links land here carrying session
+  //                        tokens in the URL FRAGMENT, which the
+  //                        server can never see (fragments never
+  //                        reach the server at all) — so getUser()
+  //                        will always report "no user" on the very
+  //                        first hit here, even on a valid link. The
+  //                        browser's Supabase client establishes the
+  //                        real session client-side once this page
+  //                        is allowed to load.
   const isPublicRoute =
     request.nextUrl.pathname.startsWith("/login") ||
-    request.nextUrl.pathname.startsWith("/p/"); // public page routes
+    request.nextUrl.pathname.startsWith("/register") ||
+    request.nextUrl.pathname.startsWith("/p/") ||
+    request.nextUrl.pathname.startsWith("/auth/");
 
   if (!user && !isPublicRoute) {
     const url = request.nextUrl.clone();
