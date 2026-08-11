@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { CreateWorkspaceForm } from "./CreateWorskspaceForm";
+import { CreateWorkspaceForm } from "./CreateWorkspaceForm";
 
 // Server Component — fetches real data directly via Prisma, no API
 // route needed. This replaces /test as the actual first real screen

@@ -36,6 +36,19 @@ export default function RegisterPage() {
     router.refresh();
   }
 
+  // Same function as login's Google button — deliberately identical.
+  // signInWithOAuth doesn't distinguish "log in" vs "register": if
+  // this Google email already has an account, Supabase logs them in;
+  // if not, it creates one silently. One button, both purposes.
+  async function handleGoogleLogin() {
+    await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+  }
+
   return (
     <div style={{ maxWidth: 360, margin: "80px auto" }}>
       <h1>Create your account</h1>
@@ -67,6 +80,8 @@ export default function RegisterPage() {
           {status === "loading" ? "Creating account..." : "Create account"}
         </button>
       </form>
+
+      <button onClick={handleGoogleLogin}>Continue with Google</button>
     </div>
   );
 }

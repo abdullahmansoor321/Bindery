@@ -13,7 +13,7 @@ export async function GET(request: Request) {
   // user should land afterward — e.g. invite links will set this to
   // /auth/set-password, since a brand-new invited user needs to set
   // one before they can do anything else.
-  const next = searchParams.get("next") ?? "/";
+  const next = searchParams.get("next") ?? "/workspace";
 
   if (code) {
     const supabase = await createClient();
