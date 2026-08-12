@@ -242,3 +242,64 @@ export async function removeMember(input: z.infer<typeof removeMemberSchema>) {
 
   revalidatePath(`/workspace/${workspaceId}/members`);
 }
+
+// ============================================================
+// updateMemberRole — FR-1.3
+// ============================================================
+const updateMemberRoleSchema = z.object({
+  workspaceId: z.string().uuid(),
+  membershipId: z.string().uuid(),
+  newRole: z.enum(["OWNER", "EDITOR", "VIEWER"]),
+});
+
+export async function updateMemberRole(input: z.infer<typeof updateMemberRoleSchema>) {
+  const { workspaceId, membershipId, newRole } = updateMemberRoleSchema.parse(input);
+
+  const supabase = await createClient();
+  const { data: { user: caller } } = await supabase.auth.getUser();
+  if (!caller) {
+    throw new Error("Not authenticated");
+  }
+
+  const callerMembership = await prisma.memberships.findUnique({
+    where: {
+      user_id_workspace_id: { user_id: caller.id, workspace_id: workspaceId },
+    },
+  });
+  if (!callerMembership || callerMembership.role !== "OWNER") {
+    throw new Error("Only workspace owners can update member roles");
+  }
+
+  const targetMembership = await prisma.memberships.findUnique({
+    where: { id: membershipId },
+  });
+  if (!targetMembership || targetMembership.workspace_id !== workspaceId) {
+    throw new Error("Membership not found in this workspace");
+  }
+
+  // Skip the write entirely if nothing's actually changing.
+  if (targetMembership.role === newRole) {
+    return;
+  }
+
+  // This is currently the ONLY place in the codebase that can create a
+  // second Owner — createWorkspace always makes exactly one, and
+  // inviteMember's schema deliberately excludes "OWNER" as an option.
+  // That's exactly why the last-Owner check below matters here: before
+  // this function existed, ownerCount could never have been anything
+  // but 1, so this protection had nothing to guard against yet.
+  if (targetMembership.role === "OWNER" && newRole !== "OWNER") {
+    const ownerCount = await prisma.memberships.count({
+      where: { workspace_id: workspaceId, role: "OWNER" },
+    });
+    if (ownerCount <= 1) {
+      throw new Error("Cannot demote the last owner — transfer ownership first");
+    }
+  }
+
+  await prisma.memberships.update({
+    where: { id: membershipId },
+    data: { role: newRole },
+  });
+  revalidatePath(`/workspace/${workspaceId}/members`);
+}

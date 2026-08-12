@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { InviteForm } from "./InviteForm";
 import { RemoveMemberButton } from "./RemoveMemberButton";
+import { RoleSelect } from "./RoleSelect";
 
 // This is a Server Component — notice there's no "use client" at the
 // top. That means this code runs on the server, and can talk directly
@@ -54,7 +55,7 @@ export default async function MembersPage({
               <br />
               <small style={{ color: "#888" }}>{m.users.email}</small>
             </span>
-            <span>{m.role}</span>
+            <RoleSelect workspaceId={workspaceId} membershipId={m.id} currentRole={m.role} />
             <RemoveMemberButton workspaceId={workspaceId} membershipId={m.id} />
           </li>
         ))}
