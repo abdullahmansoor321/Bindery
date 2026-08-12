@@ -171,3 +171,74 @@ export async function inviteMember(input: z.infer<typeof inviteSchema>) {
   // showing stale data.
   revalidatePath(`/workspace/${workspaceId}/members`);
 }
+
+// ============================================================
+// removeMember — FR-1.3
+// ============================================================
+const removeMemberSchema = z.object({
+  workspaceId: z.string().uuid(),
+  membershipId: z.string().uuid(), // the row to delete, not the user id
+});
+
+export async function removeMember(input: z.infer<typeof removeMemberSchema>) {
+  const { workspaceId, membershipId } = removeMemberSchema.parse(input);
+
+  // Step 1: same authentication + authorization pattern as inviteMember
+  // — this is intentional consistency, not accidental repetition. Every
+  // action that changes membership goes through the same two checks.
+  const supabase = await createClient();
+  const { data: { user: caller } } = await supabase.auth.getUser();
+
+  if (!caller) {
+    throw new Error("Not authenticated");
+  }
+
+  const callerMembership = await prisma.memberships.findUnique({
+    where: {
+      user_id_workspace_id: { user_id: caller.id, workspace_id: workspaceId },
+    },
+  });
+
+  if (!callerMembership || callerMembership.role !== "OWNER") {
+    throw new Error("Only workspace owners can remove members");
+  }
+
+  // Step 2: find the specific membership row we're being asked to
+  // delete. We look it up by its own id, not by user_id, because the
+  // form only knows "delete THIS row," not "delete whichever row
+  // belongs to this user" — a small but deliberate distinction.
+  const targetMembership = await prisma.memberships.findUnique({
+    where: { id: membershipId },
+  });
+
+  if (!targetMembership || targetMembership.workspace_id !== workspaceId) {
+    // The second half of this check matters: without it, an Owner of
+    // Workspace A could pass in a membershipId that actually belongs
+    // to Workspace B and remove someone from a workspace they have
+    // no authority over at all.
+    throw new Error("Membership not found in this workspace");
+  }
+
+  // Step 3: the last-Owner protection rule. If the person being
+  // removed is an Owner, count how many Owners this workspace has
+  // BEFORE removing them — if it's only one, refuse, or the
+  // workspace would be left with nobody able to manage it at all.
+  if (targetMembership.role === "OWNER") {
+    const ownerCount = await prisma.memberships.count({
+      where: { workspace_id: workspaceId, role: "OWNER" },
+    });
+
+    if (ownerCount <= 1) {
+      throw new Error(
+        "Cannot remove the last owner — transfer ownership first"
+      );
+    }
+  }
+
+  // Step 4: actually delete the row.
+  await prisma.memberships.delete({
+    where: { id: membershipId },
+  });
+
+  revalidatePath(`/workspace/${workspaceId}/members`);
+}
