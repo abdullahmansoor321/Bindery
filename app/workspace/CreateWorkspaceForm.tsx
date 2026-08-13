@@ -15,18 +15,18 @@ export function CreateWorkspaceForm() {
     setErrorMessage("");
 
     try {
-      await createWorkspace(name);
-      setName("");
-      // The new workspace now exists in the database — refresh() re-runs
-      // this Server Component's data fetch so it shows up in the list
-      // immediately, without a full page reload.
+      await createWorkspace({ name });
+
       router.refresh();
     } catch (err) {
       setStatus("error");
-      setErrorMessage(err instanceof Error ? err.message : "Something went wrong");
+      setErrorMessage(
+        err instanceof Error ? err.message : "Something went wrong"
+      );
       return;
     }
 
+    setName("");
     setStatus("idle");
   }
 
@@ -37,11 +37,20 @@ export function CreateWorkspaceForm() {
         placeholder="Workspace name"
         value={name}
         onChange={(e) => setName(e.target.value)}
+        disabled={status === "loading"}
       />
-      <button onClick={handleCreate} disabled={status === "loading" || !name}>
+
+      <button
+        type="button"
+        onClick={handleCreate}
+        disabled={status === "loading" || !name.trim()}
+      >
         {status === "loading" ? "Creating..." : "Create Workspace"}
       </button>
-      {status === "error" && <p style={{ color: "red" }}>{errorMessage}</p>}
+
+      {status === "error" && (
+        <p style={{ color: "red" }}>{errorMessage}</p>
+      )}
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import Link from "next/link";
 import { InviteForm } from "./InviteForm";
 import { RemoveMemberButton } from "./RemoveMemberButton";
 import { RoleSelect } from "./RoleSelect";
@@ -38,6 +39,7 @@ export default async function MembersPage({
   return (
     <div style={{ maxWidth: 480, margin: "60px auto" }}>
       <h1>{workspace?.name} — Members</h1>
+      <Link href={`/workspace/${workspaceId}/settings`}>Workspace Settings</Link>
 
       <ul style={{ listStyle: "none", padding: 0 }}>
         {memberships.map((m) => (
