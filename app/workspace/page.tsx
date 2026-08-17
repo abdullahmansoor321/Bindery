@@ -49,7 +49,7 @@ export default async function WorkspacePage() {
               borderBottom: "1px solid #eee",
             }}
           >
-            <Link href={`/workspace/${m.workspace_id}/members`}>
+            <Link href={`/workspace/${m.workspace_id}`}>
               {m.workspaces.name}
             </Link>
             <span style={{ color: "#888" }}>{m.role}</span>
