@@ -122,3 +122,51 @@ export async function getChildPages(input: z.infer<typeof getChildPagesSchema>) 
     select: { id: true, title: true, position: true }, // no content needed for a tree row
   });
 }
+
+// ============================================================
+// updatePageContent — FR-2.2 / FR-2.8
+// ============================================================
+const updatePageContentSchema = z.object({
+  pageId: z.string().uuid(),
+  content: z.string(), // plain text for now; Tiptap's JSON shape comes in a later step
+});
+
+export async function updatePageContent(input: z.infer<typeof updatePageContentSchema>) {
+  const { pageId, content } = updatePageContentSchema.parse(input);
+
+  const supabase = await createClient();
+  const {
+    data: { user: caller },
+  } = await supabase.auth.getUser();
+
+  if (!caller) {
+    throw new Error("Not authenticated");
+  }
+
+  // We need the page's workspace_id to check the caller's role there —
+  // pageId alone doesn't tell us which workspace's rules apply.
+  const page = await prisma.pages.findUnique({ where: { id: pageId } });
+  if (!page) {
+    throw new Error("Page not found");
+  }
+
+  const callerMembership = await prisma.memberships.findUnique({
+    where: {
+      user_id_workspace_id: { user_id: caller.id, workspace_id: page.workspace_id },
+    },
+  });
+
+  if (!callerMembership || callerMembership.role === "VIEWER") {
+    throw new Error("Viewers cannot edit pages");
+  }
+
+  await prisma.pages.update({
+    where: { id: pageId },
+    data: {
+      content: { text: content }, // wrapped in an object since the column is JSONB
+      last_edited_by: caller.id,  // FR-2.8 — updated_at bumps automatically via our DB trigger
+    },
+  });
+
+  revalidatePath(`/workspace/${page.workspace_id}/page/${pageId}`);
+}
