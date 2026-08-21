@@ -170,3 +170,248 @@ export async function updatePageContent(input: z.infer<typeof updatePageContentS
 
   revalidatePath(`/workspace/${page.workspace_id}/page/${pageId}`);
 }
+
+// ============================================================
+// wouldCreateCycle — the actual cycle-prevention logic, kept
+// separate from movePage so it can be reasoned about (and tested)
+// on its own.
+// ============================================================
+// Walks UPWARD from the proposed new parent — checking its parent,
+// then that page's parent, and so on — until either:
+//   (a) we hit a page with no parent (top-level) → no cycle, safe
+//   (b) we find pageBeingMoved somewhere in that chain → CYCLE
+async function wouldCreateCycle(
+  pageBeingMoved: string,
+  proposedNewParentId: string | null
+): Promise<boolean> {
+  // Moving a page to top-level (no parent) can never create a cycle —
+  // there's no chain to walk at all.
+  if (proposedNewParentId === null) {
+    return false;
+  }
+
+  // A page can't be its own parent — this is the simplest possible
+  // cycle (chain length zero), worth checking explicitly before the
+  // loop even starts.
+  if (proposedNewParentId === pageBeingMoved) {
+    return true;
+  }
+
+  let currentId: string | null = proposedNewParentId;
+
+  while (currentId) {
+    const current: { parent_id: string | null } | null = await prisma.pages.findUnique({
+      where: { id: currentId },
+      select: { parent_id: true },
+    });
+
+    if (!current) break; // broken chain — shouldn't happen, but don't loop forever
+
+    if (current.parent_id === pageBeingMoved) {
+      return true; // found it — pageBeingMoved is an ancestor of the target
+    }
+
+    currentId = current.parent_id;
+  }
+
+  return false;
+}
+
+// ============================================================
+// movePage — FR-2.3, the sensitive one
+// ============================================================
+const movePageSchema = z.object({
+  pageId: z.string().uuid(),
+  newParentId: z.string().uuid().nullable(),
+  // Option B, as discussed: the frontend just says "put it after THIS
+  // sibling" (or null for "make it the first child") — the server
+  // calculates the actual fractional position itself, so the client
+  // never has to know/trust stale position numbers.
+  afterSiblingId: z.string().uuid().nullable(),
+});
+
+export async function movePage(input: z.infer<typeof movePageSchema>) {
+  const { pageId, newParentId, afterSiblingId } = movePageSchema.parse(input);
+
+  const supabase = await createClient();
+  const {
+    data: { user: caller },
+  } = await supabase.auth.getUser();
+
+  if (!caller) {
+    throw new Error("Not authenticated");
+  }
+
+  const page = await prisma.pages.findUnique({ where: { id: pageId } });
+  if (!page) {
+    throw new Error("Page not found");
+  }
+
+  const callerMembership = await prisma.memberships.findUnique({
+    where: {
+      user_id_workspace_id: { user_id: caller.id, workspace_id: page.workspace_id },
+    },
+  });
+
+  if (!callerMembership || callerMembership.role === "VIEWER") {
+    throw new Error("Viewers cannot move pages");
+  }
+
+  // Tenant check — same pattern as createPage's parent check. Both
+  // newParentId AND afterSiblingId (if given) must belong to this
+  // same workspace.
+  if (newParentId) {
+    const parentPage = await prisma.pages.findUnique({ where: { id: newParentId } });
+    if (!parentPage || parentPage.workspace_id !== page.workspace_id) {
+      throw new Error("Target parent not found in this workspace");
+    }
+  }
+
+  // The cycle check — this is the whole point of this action existing
+  // as carefully as it does.
+  const isCycle = await wouldCreateCycle(pageId, newParentId);
+  if (isCycle) {
+    throw new Error("Cannot move a page into its own descendant");
+  }
+
+  // Position calculation — find the sibling we're placing this after,
+  // and the one immediately following it in the target group, then
+  // take the midpoint. If afterSiblingId is null, we're placing this
+  // FIRST in the group, so we only need "the current first sibling."
+  const siblingsInTargetGroup = await prisma.pages.findMany({
+    where: { workspace_id: page.workspace_id, parent_id: newParentId },
+    orderBy: { position: "asc" },
+    select: { id: true, position: true },
+  });
+
+  let newPosition: number;
+
+  if (afterSiblingId === null) {
+    // Becoming the first child: go just before whatever is currently
+    // first (or position 1.0 if the group is empty).
+    const firstSibling = siblingsInTargetGroup[0];
+    newPosition = firstSibling ? firstSibling.position / 2 : 1.0;
+  } else {
+    const afterIndex = siblingsInTargetGroup.findIndex((s) => s.id === afterSiblingId);
+    if (afterIndex === -1) {
+      throw new Error("Reference sibling not found in target group");
+    }
+    const afterSibling = siblingsInTargetGroup[afterIndex];
+    const nextSibling = siblingsInTargetGroup[afterIndex + 1]; // may be undefined if afterSibling is currently last
+
+    newPosition = nextSibling
+      ? (afterSibling.position + nextSibling.position) / 2
+      : afterSibling.position + 1.0; // last in the group — same "+1" pattern as createPage
+  }
+
+  await prisma.pages.update({
+    where: { id: pageId },
+    data: { parent_id: newParentId, position: newPosition },
+  });
+
+  revalidatePath(`/workspace/${page.workspace_id}`);
+}
+
+// ============================================================
+// deletePage — FR-2.4
+// ============================================================
+// No manual cleanup needed for children or page_chunks here — the
+// database's ON DELETE CASCADE (set up in the schema) handles both
+// automatically the moment this row is deleted. Same pattern as
+// deleteWorkspace: we only ever delete the ONE row we were asked to.
+const deletePageSchema = z.object({
+  pageId: z.string().uuid(),
+});
+
+export async function deletePage(input: z.infer<typeof deletePageSchema>) {
+  const { pageId } = deletePageSchema.parse(input);
+
+  const supabase = await createClient();
+  const {
+    data: { user: caller },
+  } = await supabase.auth.getUser();
+
+  if (!caller) {
+    throw new Error("Not authenticated");
+  }
+
+  const page = await prisma.pages.findUnique({ where: { id: pageId } });
+  if (!page) {
+    throw new Error("Page not found");
+  }
+
+  const callerMembership = await prisma.memberships.findUnique({
+    where: {
+      user_id_workspace_id: { user_id: caller.id, workspace_id: page.workspace_id },
+    },
+  });
+
+  if (!callerMembership || callerMembership.role === "VIEWER") {
+    throw new Error("Viewers cannot delete pages");
+  }
+
+  try {
+    await prisma.pages.delete({ where: { id: pageId } });
+  } catch (err: any) {
+    // Same P2025 handling as deleteWorkspace — covers the case where
+    // the page was already deleted (e.g. a double-click, or deleted
+    // via its parent's cascade a moment earlier).
+    if (err.code === "P2025") {
+      throw new Error("This page no longer exists");
+    }
+    throw err;
+  }
+
+  revalidatePath(`/workspace/${page.workspace_id}`);
+}
+
+// ============================================================
+// togglePublic — FR-2.7
+// ============================================================
+const togglePublicSchema = z.object({
+  pageId: z.string().uuid(),
+  isPublic: z.boolean(),
+});
+
+export async function togglePublic(input: z.infer<typeof togglePublicSchema>) {
+  const { pageId, isPublic } = togglePublicSchema.parse(input);
+
+  const supabase = await createClient();
+  const {
+    data: { user: caller },
+  } = await supabase.auth.getUser();
+
+  if (!caller) {
+    throw new Error("Not authenticated");
+  }
+
+  const page = await prisma.pages.findUnique({ where: { id: pageId } });
+  if (!page) {
+    throw new Error("Page not found");
+  }
+
+  // Same edit-level permission as move/delete/edit-content — sharing
+  // a page publicly is a meaningful change to who can see it, not a
+  // read-only action, so Viewers are blocked here too.
+  const callerMembership = await prisma.memberships.findUnique({
+    where: {
+      user_id_workspace_id: { user_id: caller.id, workspace_id: page.workspace_id },
+    },
+  });
+
+  if (!callerMembership || callerMembership.role === "VIEWER") {
+    throw new Error("Viewers cannot change page visibility");
+  }
+
+  await prisma.pages.update({
+    where: { id: pageId },
+    data: { is_public: isPublic },
+  });
+
+  // Revalidate BOTH the private workspace view (so the public badge
+  // updates) AND the public route itself — if someone just turned
+  // sharing OFF, the public page needs to actually disappear, not
+  // stay cached and reachable for a stale visitor.
+  revalidatePath(`/workspace/${page.workspace_id}/page/${pageId}`);
+  revalidatePath(`/p/${pageId}`);
+}

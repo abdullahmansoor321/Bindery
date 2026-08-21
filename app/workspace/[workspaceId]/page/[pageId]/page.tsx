@@ -3,6 +3,8 @@ import { createClient } from "@/utils/supabase/server";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { EditPageForm } from "./EditPageForm";
+import { TogglePublicButton } from "./TogglePublicButton";
+import { DeletePageButton } from "./DeletePageButton";
 
 export default async function PageDetailView({
   params,
@@ -87,6 +89,14 @@ export default async function PageDetailView({
         Last edited by {page.users?.email ?? "unknown"} ·{" "}
         {page.updated_at.toLocaleString()}
       </p>
+
+      {canEdit && (
+        <TogglePublicButton pageId={pageId} initialIsPublic={page.is_public} />
+      )}
+
+      {canEdit && (
+        <DeletePageButton pageId={pageId} pageTitle={page.title} workspaceId={workspaceId} />
+      )}
 
       {canEdit ? (
         <EditPageForm pageId={pageId} initialContent={contentText} />

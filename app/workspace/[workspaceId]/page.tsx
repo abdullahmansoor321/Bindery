@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/utils/supabase/server";
 import { redirect, notFound } from "next/navigation";
-import { PageTreeNode } from "./PageTreeNode";
+import { PageTree } from "./PageTree";
 import { NewPageForm } from "./NewPageForm";
 
 export default async function WorkspaceHomePage({
@@ -54,14 +54,7 @@ export default async function WorkspaceHomePage({
       <h1>{workspace.name}</h1>
 
       <div style={{ marginTop: 24 }}>
-        {rootPages.map((page) => (
-          <PageTreeNode
-            key={page.id}
-            workspaceId={workspaceId}
-            page={page}
-            canEdit={canEdit}
-          />
-        ))}
+        <PageTree workspaceId={workspaceId} rootPages={rootPages} canEdit={canEdit} />
       </div>
 
       {canEdit && (
