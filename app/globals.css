@@ -1,26 +1,108 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
+@layer base {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --bg-canvas: #FAF8F5;
+    --bg-sidebar: #F5F2EC;
+    --bg-card: #FFFFFF;
+    --bg-card-hover: #F8F6F1;
+    --border-subtle: #EAE5DC;
+    --border-card: #EAE5DC;
+    --text-primary: #1F2421;
+    --text-secondary: #6B6E6B;
+    --text-muted: #A3AAA3;
+    --brand-forest: #143325;
+    --brand-forest-mid: #204D39;
+    --brand-forest-light: #2E5A44;
+    --brand-emerald: #449E73;
+    --brand-emerald-hover: #388661;
+    --accent-mint: #E9F0EC;
+    --accent-mint-subtle: #DFECE8;
+    --danger: #B83A3A;
+    --danger-bg: #FDF2F2;
+    --danger-border: #F8B4B4;
+    --success: #10B981;
+    
+    --shadow-card: 0px 4px 16px 0px rgba(31, 36, 33, 0.05);
+    --shadow-modal: 0px 16px 40px 0px rgba(0, 0, 0, 0.18);
+  }
+
+  .dark {
+    --bg-canvas: #131513;
+    --bg-sidebar: #1D201D;
+    --bg-card: #272A27;
+    --bg-card-hover: #2F332F;
+    --border-subtle: #3A3F3A;
+    --border-card: #3A3F3A;
+    --text-primary: #F5F2EB;
+    --text-secondary: #A3AAA3;
+    --text-muted: #6B6E6B;
+    --brand-forest: #204D39;
+    --brand-forest-mid: #274E39;
+    --brand-forest-light: #449E73;
+    --brand-emerald: #449E73;
+    --brand-emerald-hover: #52B886;
+    --accent-mint: #192F24;
+    --accent-mint-subtle: #1D2C24;
+    --danger: #E55353;
+    --danger-bg: #2B1616;
+    --danger-border: #5C2525;
+    --success: #10B981;
+    
+    --shadow-card: 0px 4px 20px 0px rgba(0, 0, 0, 0.35);
+    --shadow-modal: 0px 16px 40px 0px rgba(0, 0, 0, 0.55);
   }
 }
 
+@theme inline {
+  --font-serif: var(--font-fraunces), Georgia, serif;
+  --font-sans: var(--font-figtree), system-ui, -apple-system, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), monospace;
+  --font-inter: var(--font-inter), sans-serif;
+
+  --color-canvas: var(--bg-canvas);
+  --color-sidebar: var(--bg-sidebar);
+  --color-card: var(--bg-card);
+  --color-card-hover: var(--bg-card-hover);
+  --color-border: var(--border-subtle);
+  --color-border-card: var(--border-card);
+  --color-ink-primary: var(--text-primary);
+  --color-ink-secondary: var(--text-secondary);
+  --color-ink-muted: var(--text-muted);
+  
+  --color-forest: var(--brand-forest);
+  --color-forest-mid: var(--brand-forest-mid);
+  --color-forest-light: var(--brand-forest-light);
+  --color-emerald: var(--brand-emerald);
+  --color-emerald-hover: var(--brand-emerald-hover);
+  --color-mint: var(--accent-mint);
+  --color-mint-subtle: var(--accent-mint-subtle);
+  --color-danger: var(--danger);
+  --color-danger-bg: var(--danger-bg);
+  --color-danger-border: var(--danger-border);
+  --color-success: var(--success);
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--bg-canvas);
+  color: var(--text-primary);
+  font-family: var(--font-figtree), system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom Scrollbar for Bindery Editorial Vibe */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-subtle);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
 }

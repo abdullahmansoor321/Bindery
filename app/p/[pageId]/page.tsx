@@ -1,9 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
+import Link from "next/link";
+import { Logo } from "@/components/ui/Logo";
+import { Badge } from "@/components/ui/Badge";
+import { Globe, Clock, ArrowRight } from "lucide-react";
 
-// NO auth check anywhere in this file — this route is exempted in
-// proxy.ts's isPublicRoute list (/p/ prefix), reachable by anyone
-// with the link, no session required at all.
 export default async function PublicPageView({
   params,
 }: {
@@ -11,36 +12,89 @@ export default async function PublicPageView({
 }) {
   const { pageId } = await params;
 
-  // The single most important line in this file, per FR-4.3: the
-  // query itself enforces "only this one page, only if it's actually
-  // public" — there is no separate "check permission" step here,
-  // because the WHERE clause IS the permission check. If is_public
-  // is false, this returns null no matter who's asking or why.
   const page = await prisma.pages.findFirst({
     where: { id: pageId, is_public: true },
+    include: {
+      workspaces: { select: { name: true } },
+    },
   });
 
   if (!page) {
-    // Deliberately identical whether the page doesn't exist, was
-    // never public, or had sharing turned off after being shared —
-    // we never reveal WHICH of those is true to an outside visitor.
     notFound();
   }
 
   const contentText =
-    typeof page.content === "object" && page.content !== null && "text" in page.content
+    typeof page.content === "object" &&
+    page.content !== null &&
+    "text" in page.content
       ? String((page.content as { text: unknown }).text)
       : "";
 
   return (
-    <div style={{ maxWidth: 600, margin: "40px auto" }}>
-      {/* No sidebar, no breadcrumb, no workspace chrome, no login
-          prompt — just this one page's content, per FR-4.3. Note
-          there's also deliberately no link to siblings/children
-          anywhere on this page. */}
-      <p style={{ fontSize: 12, color: "#888" }}>Bindery</p>
-      <h1>{page.title}</h1>
-      <p style={{ whiteSpace: "pre-wrap" }}>{contentText}</p>
+    <div className="min-h-screen bg-[#FAF8F5] flex flex-col">
+      {/* Public Page Minimal Header */}
+      <header className="h-16 border-b border-[#EAE5DC] bg-white/80 backdrop-blur-sm px-6 sm:px-12 flex items-center justify-between sticky top-0 z-20">
+        <div className="flex items-center gap-3">
+          <Logo size="sm" href="/" />
+          <span className="text-[#A3AAA3]">/</span>
+          <span className="text-xs font-serif font-semibold text-[#1F2421] truncate max-w-[160px]">
+            {page.workspaces.name}
+          </span>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <Badge variant="public" size="sm">
+            <Globe className="w-3 h-3 mr-1 inline" />
+            Public View
+          </Badge>
+
+          <Link
+            href="/login"
+            className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#143325] text-[#FAF8F5] text-xs font-semibold hover:bg-[#204D39] transition-colors shadow-2xs"
+          >
+            <span>Open in Bindery</span>
+            <ArrowRight className="w-3 h-3" />
+          </Link>
+        </div>
+      </header>
+
+      {/* Main Document Reader */}
+      <main className="flex-1 max-w-3xl w-full mx-auto p-6 sm:p-12 space-y-8">
+        <div className="space-y-3 pb-6 border-b border-[#EAE5DC]">
+          <h1 className="font-serif text-3xl sm:text-5xl font-semibold text-[#1F2421] leading-tight tracking-tight">
+            {page.title}
+          </h1>
+
+          <div className="flex items-center gap-3 text-xs text-[#6B6E6B]">
+            <span>Published from {page.workspaces.name}</span>
+            <span>·</span>
+            <div className="flex items-center gap-1">
+              <Clock className="w-3.5 h-3.5" />
+              <span>
+                {new Date(page.updated_at).toLocaleDateString(undefined, {
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
+                })}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <article className="prose max-w-none text-[#1F2421] text-base sm:text-lg leading-[1.8] whitespace-pre-wrap font-sans">
+          {contentText || (
+            <p className="text-sm text-[#A3AAA3] italic">
+              This public document currently has no written content.
+            </p>
+          )}
+        </article>
+      </main>
+
+      {/* Public Footer */}
+      <footer className="py-8 border-t border-[#EAE5DC] text-center text-xs text-[#6B6E6B] space-y-2">
+        <Logo size="sm" showWordmark={false} href="/" className="justify-center" />
+        <p>Curated and published on <Link href="/" className="font-semibold text-[#143325] hover:underline">Bindery</Link></p>
+      </footer>
     </div>
   );
 }

@@ -3,54 +3,63 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createWorkspace } from "@/app/actions/workspace";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { Plus } from "lucide-react";
 
 export function CreateWorkspaceForm() {
   const [name, setName] = useState("");
-  const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
-  const [errorMessage, setErrorMessage] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
-  async function handleCreate() {
-    setStatus("loading");
-    setErrorMessage("");
+  async function handleCreate(e: React.FormEvent) {
+    e.preventDefault();
+    if (!name.trim()) return;
+
+    setLoading(true);
+    setError(null);
 
     try {
-      await createWorkspace({ name });
-
+      const ws = await createWorkspace({ name: name.trim() });
+      setName("");
+      router.push(`/workspace/${ws.id}`);
       router.refresh();
-    } catch (err) {
-      setStatus("error");
-      setErrorMessage(
-        err instanceof Error ? err.message : "Something went wrong"
-      );
-      return;
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to create workspace");
+    } finally {
+      setLoading(false);
     }
-
-    setName("");
-    setStatus("idle");
   }
 
   return (
-    <div>
-      <input
-        type="text"
-        placeholder="Workspace name"
+    <form onSubmit={handleCreate} className="space-y-4">
+      <Input
+        label="Workspace Name"
+        placeholder="e.g. Design Systems, Legal Archive"
         value={name}
         onChange={(e) => setName(e.target.value)}
-        disabled={status === "loading"}
+        required
+        disabled={loading}
       />
 
-      <button
-        type="button"
-        onClick={handleCreate}
-        disabled={status === "loading" || !name.trim()}
-      >
-        {status === "loading" ? "Creating..." : "Create Workspace"}
-      </button>
-
-      {status === "error" && (
-        <p style={{ color: "red" }}>{errorMessage}</p>
+      {error && (
+        <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-xs text-[#B83A3A] font-medium">
+          {error}
+        </div>
       )}
-    </div>
+
+      <Button
+        type="submit"
+        variant="primary"
+        size="md"
+        loading={loading}
+        disabled={!name.trim()}
+        className="w-full"
+        icon={<Plus className="w-4 h-4" />}
+      >
+        Create Workspace
+      </Button>
+    </form>
   );
 }
