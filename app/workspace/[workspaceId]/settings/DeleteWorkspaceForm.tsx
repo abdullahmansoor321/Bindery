@@ -3,6 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { deleteWorkspace } from "@/app/actions/workspace";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { Trash2 } from "lucide-react";
 
 export function DeleteWorkspaceForm({
   workspaceId,
@@ -12,58 +15,66 @@ export function DeleteWorkspaceForm({
   workspaceName: string;
 }) {
   const [confirmText, setConfirmText] = useState("");
-  const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
-  const [errorMessage, setErrorMessage] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
-  // This is the actual FR-1.5 requirement — the delete button stays
-  // disabled until the typed text matches the real workspace name
-  // EXACTLY (case-sensitive on purpose: a careless partial match, like
-  // ignoring case, would defeat the point of the confirmation step).
   const isConfirmed = confirmText === workspaceName;
 
-  async function handleDelete() {
+  async function handleDelete(e: React.FormEvent) {
+    e.preventDefault();
     if (!isConfirmed) return;
 
-    setStatus("loading");
+    setLoading(true);
+    setError(null);
     try {
       await deleteWorkspace({ workspaceId });
-      // The page we're standing on no longer exists in the database
-      // the instant this succeeds — router.push, not router.refresh,
-      // since there's nothing left here to re-fetch.
       router.push("/workspace");
-    } catch (err) {
-      setStatus("error");
-      setErrorMessage(err instanceof Error ? err.message : "Failed to delete workspace");
+      router.refresh();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to delete workspace");
+      setLoading(false);
     }
   }
 
   return (
-    <div style={{ marginTop: 16 }}>
-      <label style={{ fontSize: 14 }}>
-        Type <strong>{workspaceName}</strong> to confirm:
-      </label>
-      <input
-        type="text"
-        value={confirmText}
-        onChange={(e) => setConfirmText(e.target.value)}
-        disabled={status === "loading"}
-        style={{ display: "block", marginTop: 4, marginBottom: 8 }}
-      />
+    <form onSubmit={handleDelete} className="space-y-4">
+      <div className="space-y-2">
+        <label className="text-xs text-[#6B6E6B] block">
+          To confirm, type{" "}
+          <strong className="text-[#1F2421] font-mono select-all font-bold">
+            {workspaceName}
+          </strong>{" "}
+          below:
+        </label>
+        <Input
+          type="text"
+          placeholder={workspaceName}
+          value={confirmText}
+          onChange={(e) => setConfirmText(e.target.value)}
+          disabled={loading}
+          required
+        />
+      </div>
 
-      <button
-        onClick={handleDelete}
-        disabled={!isConfirmed || status === "loading"}
-        style={{
-          background: isConfirmed ? "#e5484d" : "#ccc",
-          color: "white",
-          cursor: isConfirmed ? "pointer" : "not-allowed",
-        }}
-      >
-        {status === "loading" ? "Deleting..." : "Delete Workspace Permanently"}
-      </button>
+      {error && (
+        <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-xs text-[#B83A3A] font-medium">
+          {error}
+        </div>
+      )}
 
-      {status === "error" && <p style={{ color: "red" }}>{errorMessage}</p>}
-    </div>
+      <div className="flex justify-end pt-2">
+        <Button
+          type="submit"
+          variant="danger"
+          size="sm"
+          disabled={!isConfirmed || loading}
+          loading={loading}
+          icon={<Trash2 className="w-3.5 h-3.5" />}
+        >
+          Delete Workspace Permanently
+        </Button>
+      </div>
+    </form>
   );
 }

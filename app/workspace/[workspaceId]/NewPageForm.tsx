@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createPage } from "@/app/actions/pages";
+import { Plus, X, Loader2 } from "lucide-react";
 
 type PageSummary = { id: string; title: string; position: number };
 
@@ -13,48 +14,84 @@ export function NewPageForm({
 }: {
   workspaceId: string;
   parentId: string | null;
-  // Optional: lets a nested PageTreeNode add the new page straight
-  // into its own already-loaded children list, instead of relying on
-  // a full page refresh to see it appear.
   onCreated?: (page: PageSummary) => void;
 }) {
+  const [isOpen, setIsOpen] = useState(false);
   const [title, setTitle] = useState("");
-  const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
-  const [errorMessage, setErrorMessage] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
-  async function handleCreate() {
-    setStatus("loading");
+  async function handleCreate(e: React.FormEvent) {
+    e.preventDefault();
+    if (!title.trim()) return;
+
+    setLoading(true);
+    setError(null);
     try {
-      const page = await createPage({ workspaceId, parentId, title });
+      const page = await createPage({
+        workspaceId,
+        parentId,
+        title: title.trim(),
+      });
       setTitle("");
-      setStatus("idle");
+      setIsOpen(false);
 
       if (onCreated) {
-        onCreated(page); // nested case: update local tree state directly
+        onCreated(page);
       } else {
-        router.refresh(); // top-level case: re-fetch the Server Component
+        router.refresh();
       }
-    } catch (err) {
-      setStatus("error");
-      setErrorMessage(err instanceof Error ? err.message : "Failed to create page");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to create page");
+    } finally {
+      setLoading(false);
     }
   }
 
-  return (
-    <div>
-      <input
-        type="text"
-        placeholder="New page title"
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        disabled={status === "loading"}
-        style={{ fontSize: 12 }}
-      />
-      <button onClick={handleCreate} disabled={status === "loading" || !title.trim()}>
-        {status === "loading" ? "..." : "+ Add"}
+  if (!isOpen) {
+    return (
+      <button
+        onClick={() => setIsOpen(true)}
+        className="w-full flex items-center gap-1.5 px-2 py-1 text-[11px] font-medium text-[#6B6E6B] hover:text-[#143325] hover:bg-[#EAE5DC]/50 rounded-md transition-colors"
+      >
+        <Plus className="w-3 h-3" />
+        <span>Add page</span>
       </button>
-      {status === "error" && <p style={{ color: "red", fontSize: 11 }}>{errorMessage}</p>}
-    </div>
+    );
+  }
+
+  return (
+    <form onSubmit={handleCreate} className="space-y-1.5 p-1.5 bg-white border border-[#EAE5DC] rounded-lg shadow-xs">
+      <div className="flex items-center gap-1">
+        <input
+          type="text"
+          placeholder="Page title..."
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          disabled={loading}
+          autoFocus
+          className="flex-1 h-7 px-2 bg-[#FAF8F5] border border-[#EAE5DC] text-xs rounded text-[#1F2421] placeholder:text-[#A3AAA3] focus:outline-none focus:bg-white focus:border-[#143325]"
+        />
+        <button
+          type="submit"
+          disabled={loading || !title.trim()}
+          className="h-7 px-2 rounded bg-[#143325] text-[#FAF8F5] text-[11px] font-semibold hover:bg-[#204D39] disabled:opacity-50 transition-colors flex items-center justify-center"
+        >
+          {loading ? <Loader2 className="w-3 h-3 animate-spin" /> : "Save"}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setIsOpen(false);
+            setTitle("");
+          }}
+          className="p-1 text-[#6B6E6B] hover:text-[#1F2421] rounded"
+        >
+          <X className="w-3.5 h-3.5" />
+        </button>
+      </div>
+      {error && <p className="text-[10px] text-[#B83A3A] px-1">{error}</p>}
+    </form>
   );
 }

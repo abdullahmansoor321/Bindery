@@ -2,16 +2,19 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { DndContext, DragOverlay, useDroppable, type DragEndEvent, type DragStartEvent } from "@dnd-kit/core";
+import {
+  DndContext,
+  DragOverlay,
+  useDroppable,
+  type DragEndEvent,
+  type DragStartEvent,
+} from "@dnd-kit/core";
 import { movePage } from "@/app/actions/pages";
 import { PageTreeNode } from "./PageTreeNode";
+import { FileText } from "lucide-react";
 
 type PageSummary = { id: string; title: string; position: number };
 
-// Dedicated drop target representing "the top level itself." Dropping
-// here always means newParentId: null — this is the piece that was
-// missing before: a deeply nested page previously had no way to ever
-// become top-level again.
 function RootDropZone({ afterSiblingId }: { afterSiblingId: string | null }) {
   const { setNodeRef, isOver } = useDroppable({
     id: "root-drop-zone",
@@ -21,20 +24,13 @@ function RootDropZone({ afterSiblingId }: { afterSiblingId: string | null }) {
   return (
     <div
       ref={setNodeRef}
-      style={{
-        height: 32,
-        marginTop: 8,
-        border: "1px dashed #ccc",
-        borderColor: isOver ? "#88f" : "#ccc",
-        background: isOver ? "#eef" : "transparent",
-        fontSize: 11,
-        color: "#aaa",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-      }}
+      className={`h-7 mt-1.5 border border-dashed rounded-lg text-[11px] font-medium flex items-center justify-center transition-all ${
+        isOver
+          ? "border-[#449E73] bg-[#E9F0EC] text-[#143325]"
+          : "border-[#D1C9BC] text-[#A3AAA3] hover:border-[#143325]/40"
+      }`}
     >
-      Drop here to move to top level
+      Move to top level
     </div>
   );
 }
@@ -50,11 +46,8 @@ export function PageTree({
 }) {
   const [activeTitle, setActiveTitle] = useState<string | null>(null);
   const router = useRouter();
-
-  // Unrelated to the top-level-move fix — this stays because it's
-  // what stops the hydration error from earlier (DndContext can't be
-  // rendered on the server).
   const [isMounted, setIsMounted] = useState(false);
+
   useEffect(() => {
     setIsMounted(true);
   }, []);
@@ -72,7 +65,11 @@ export function PageTree({
     const draggedPageId = active.data.current?.pageId as string;
     const dropData = over.data.current as
       | { type: "nest"; targetPageId: string }
-      | { type: "sibling"; afterPageId: string | null; parentId: string | null };
+      | {
+          type: "sibling";
+          afterPageId: string | null;
+          parentId: string | null;
+        };
 
     if (draggedPageId === undefined || dropData === undefined) return;
 
@@ -97,7 +94,7 @@ export function PageTree({
 
   if (!isMounted) {
     return (
-      <div>
+      <div className="space-y-0.5">
         {rootPages.map((page) => (
           <PageTreeNode
             key={page.id}
@@ -113,29 +110,35 @@ export function PageTree({
 
   return (
     <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-      <div>
-        {rootPages.map((page) => (
-          <PageTreeNode
-            key={page.id}
-            workspaceId={workspaceId}
-            page={page}
-            parentId={null}
-            canEdit={canEdit}
-          />
-        ))}
+      <div className="space-y-0.5">
+        {rootPages.length === 0 ? (
+          <p className="text-[11px] text-[#A3AAA3] px-2 py-3 text-center italic">
+            No pages created yet.
+          </p>
+        ) : (
+          rootPages.map((page) => (
+            <PageTreeNode
+              key={page.id}
+              workspaceId={workspaceId}
+              page={page}
+              parentId={null}
+              canEdit={canEdit}
+            />
+          ))
+        )}
       </div>
 
-      {/* NEW: the top-level drop zone, the only actual change here */}
-      {canEdit && (
+      {canEdit && rootPages.length > 0 && (
         <RootDropZone
-          afterSiblingId={rootPages.length > 0 ? rootPages[rootPages.length - 1].id : null}
+          afterSiblingId={rootPages[rootPages.length - 1].id}
         />
       )}
 
       <DragOverlay>
         {activeTitle ? (
-          <div style={{ padding: "4px 8px", background: "white", border: "1px solid #ccc", borderRadius: 4 }}>
-            {activeTitle}
+          <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white border border-[#143325] text-[#143325] rounded-lg shadow-lg text-xs font-semibold">
+            <FileText className="w-3.5 h-3.5" />
+            <span>{activeTitle}</span>
           </div>
         ) : null}
       </DragOverlay>

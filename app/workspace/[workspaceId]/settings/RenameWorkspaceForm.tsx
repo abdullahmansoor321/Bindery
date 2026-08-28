@@ -3,6 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { renameWorkspace } from "@/app/actions/workspace";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { Check, Save } from "lucide-react";
 
 export function RenameWorkspaceForm({
   workspaceId,
@@ -12,39 +15,59 @@ export function RenameWorkspaceForm({
   currentName: string;
 }) {
   const [name, setName] = useState(currentName);
-  const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
-  const [errorMessage, setErrorMessage] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [savedSuccess, setSavedSuccess] = useState(false);
   const router = useRouter();
 
-  async function handleSave() {
-    setStatus("loading");
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault();
+    if (!name.trim() || name.trim() === currentName) return;
+
+    setLoading(true);
+    setError(null);
     try {
-      await renameWorkspace({ workspaceId, name });
+      await renameWorkspace({ workspaceId, name: name.trim() });
+      setSavedSuccess(true);
+      setTimeout(() => setSavedSuccess(false), 2000);
       router.refresh();
-      setStatus("idle");
-    } catch (err) {
-      setStatus("error");
-      setErrorMessage(err instanceof Error ? err.message : "Failed to rename");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to rename workspace");
+    } finally {
+      setLoading(false);
     }
   }
 
   const isUnchanged = name.trim() === currentName;
 
   return (
-    <div>
-      <input
-        type="text"
+    <form onSubmit={handleSave} className="space-y-4">
+      <Input
+        label="Workspace Display Name"
         value={name}
         onChange={(e) => setName(e.target.value)}
-        disabled={status === "loading"}
+        disabled={loading}
+        required
       />
-      <button
-        onClick={handleSave}
-        disabled={status === "loading" || !name.trim() || isUnchanged}
-      >
-        {status === "loading" ? "Saving..." : "Save"}
-      </button>
-      {status === "error" && <p style={{ color: "red" }}>{errorMessage}</p>}
-    </div>
+
+      {error && (
+        <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-xs text-[#B83A3A] font-medium">
+          {error}
+        </div>
+      )}
+
+      <div className="flex justify-end">
+        <Button
+          type="submit"
+          variant="primary"
+          size="sm"
+          disabled={loading || !name.trim() || isUnchanged}
+          loading={loading}
+          icon={savedSuccess ? <Check className="w-3.5 h-3.5" /> : <Save className="w-3.5 h-3.5" />}
+        >
+          {savedSuccess ? "Saved!" : "Save Name"}
+        </Button>
+      </div>
+    </form>
   );
 }
