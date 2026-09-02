@@ -2,8 +2,8 @@
 // deliberately isolated so it can be tested with a plain string before
 // it's ever wired to a real page's content (Step 4.1 of the AI plan).
 
-const CHUNK_SIZE_WORDS = 4; // approximation of ~500 tokens
-const OVERLAP_WORDS = 2; // approximation of ~50 tokens
+const CHUNK_SIZE_WORDS = 100; // approximation of ~500 tokens
+const OVERLAP_WORDS = 50; // approximation of ~50 tokens
 
 export function chunkText(text: string): string[] {
   const words = text.trim().split(/\s+/).filter(Boolean);
