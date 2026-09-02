@@ -29,6 +29,12 @@ export default function OnboardingPage() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Tracks partial invite failures specifically — separate from
+  // `error` because this needs to drive a different UI (a "Continue
+  // anyway" button), not just display a message.
+  const [failedInvites, setFailedInvites] = useState<
+    { email: string; reason: string }[]
+  >([]);
   const router = useRouter();
 
   const handleCreateWorkspace = async (e: React.FormEvent) => {
@@ -77,8 +83,11 @@ export default function OnboardingPage() {
 
     setLoading(true);
     setError(null);
+    setFailedInvites([]);
 
     const validInvites = invites.filter((inv) => inv.email.trim().length > 0);
+    const failures: { email: string; reason: string }[] = [];
+
     try {
       for (const inv of validInvites) {
         try {
@@ -87,16 +96,39 @@ export default function OnboardingPage() {
             email: inv.email.trim(),
             role: inv.role,
           });
-        } catch {
-          // Continue if single invite fails
+        } catch (err) {
+          failures.push({
+            email: inv.email.trim(),
+            reason: err instanceof Error ? err.message : "Unknown error",
+          });
         }
       }
+
+      if (failures.length > 0) {
+        // Stop here — do NOT navigate. Set state so the failure list
+        // stays on screen, then let the user explicitly choose to
+        // continue via the button below, instead of setError() firing
+        // into a component that's about to unmount anyway.
+        setFailedInvites(failures);
+        setLoading(false);
+        return;
+      }
+
       router.push(`/workspace/${createdWorkspaceId}`);
       router.refresh();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Error sending invites");
       setLoading(false);
     }
+  };
+
+  // The explicit exit from the failure state — does exactly what
+  // handleFinishOnboarding would have done on the success path,
+  // nothing more.
+  const handleContinueAnyway = () => {
+    if (!createdWorkspaceId) return;
+    router.push(`/workspace/${createdWorkspaceId}`);
+    router.refresh();
   };
 
   return (
@@ -268,19 +300,53 @@ export default function OnboardingPage() {
               </div>
             )}
 
+            {failedInvites.length > 0 && (
+              <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-800">
+                <p className="font-semibold mb-1">
+                  Workspace created, but {failedInvites.length} invite
+                  {failedInvites.length > 1 ? "s" : ""} failed:
+                </p>
+                <ul className="list-disc list-inside space-y-0.5">
+                  {failedInvites.map((f) => (
+                    <li key={f.email}>
+                      <span className="font-mono">{f.email}</span> — {f.reason}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
             <div className="space-y-3 pt-2">
-              <Button
-                type="button"
-                variant="primary"
-                size="lg"
-                loading={loading}
-                onClick={handleFinishOnboarding}
-                className="w-full"
-                icon={<Check className="w-4 h-4" />}
-                iconPosition="right"
-              >
-                Finish & Open Workspace
-              </Button>
+              {failedInvites.length > 0 ? (
+                // Explicit exit from the failure state — the actual
+                // fix for "the error never persists": we no longer
+                // auto-navigate when something failed, so this button
+                // is the only way forward from here, deliberately.
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="lg"
+                  onClick={handleContinueAnyway}
+                  className="w-full"
+                  icon={<ArrowRight className="w-4 h-4" />}
+                  iconPosition="right"
+                >
+                  Continue to Workspace Anyway
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="lg"
+                  loading={loading}
+                  onClick={handleFinishOnboarding}
+                  className="w-full"
+                  icon={<Check className="w-4 h-4" />}
+                  iconPosition="right"
+                >
+                  Finish & Open Workspace
+                </Button>
+              )}
 
               <button
                 type="button"
