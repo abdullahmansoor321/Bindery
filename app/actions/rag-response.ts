@@ -128,9 +128,9 @@ INSTRUCTIONS:
 
   // Extract citations — the model is instructed to format them as [[page_id]]
   const citationRegex = /\[\[(.*?)\]\]/g;
-  const rawCitations = [...response.matchAll(citationRegex)].map(
-    (match) => match[1]
-  );
+  const rawCitations = [
+    ...new Set([...response.matchAll(citationRegex)].map((match) => match[1])),
+  ];
 
   // Validate every citation the model claimed — re-query the database
   // to confirm each page actually exists AND belongs to this workspace.

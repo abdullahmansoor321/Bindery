@@ -4,10 +4,10 @@ import { generateEmbedding } from "./embedding";
 // This threshold is a starting guess, not a tuned value — Phase 6's
 // retrieval-accuracy evaluation (BRD §13, ≥80% target) is where this
 // actually gets measured and adjusted. Cosine distance ranges roughly
-// 0 (identical) to 2 (opposite) for normalized vectors; 0.6 is a
-// reasonable "probably related" starting point, nothing more precise
-// than that yet.
-const SIMILARITY_DISTANCE_THRESHOLD = 0.6;
+// 0 (identical) to 2 (opposite) for normalized vectors. The current
+// threshold is a broad starting value and must be validated against real
+// retrieval examples before it is treated as tuned.
+const SIMILARITY_DISTANCE_THRESHOLD = 0.9;
 
 export type RetrievedChunk = {
   id: string;
