@@ -3,6 +3,7 @@ import { createClient } from "@/utils/supabase/server";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { EditPageForm } from "./EditPageForm";
+import { RenamePageForm } from "./RenamePageForm";
 import { TogglePublicButton } from "./TogglePublicButton";
 import { DeletePageButton } from "./DeletePageButton";
 import { ChevronRight, Clock, User as UserIcon } from "lucide-react";
@@ -92,9 +93,13 @@ export default async function PageDetailView({
 
       {/* Header Container */}
       <div className="space-y-4 pb-6 border-b border-[#EAE5DC]">
-        <h1 className="font-serif text-3xl sm:text-4xl font-semibold text-[#1F2421] tracking-tight">
-          {page.title}
-        </h1>
+        {canEdit ? (
+          <RenamePageForm pageId={pageId} initialTitle={page.title} />
+        ) : (
+          <h1 className="font-serif text-3xl sm:text-4xl font-semibold text-[#1F2421] tracking-tight">
+            {page.title}
+          </h1>
+        )}
 
         {/* Metadata & Actions Bar */}
         <div className="flex flex-wrap items-center justify-between gap-4 pt-2">

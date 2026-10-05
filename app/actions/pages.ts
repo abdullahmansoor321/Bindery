@@ -183,6 +183,49 @@ export async function updatePageContent(input: z.infer<typeof updatePageContentS
   revalidatePath(`/workspace/${page.workspace_id}/page/${pageId}`);
 }
 
+const renamePageSchema = z.object({
+  pageId: z.string().uuid(),
+  title: z.string().trim().min(1, "Page title is required").max(200),
+});
+
+export async function renamePage(input: z.infer<typeof renamePageSchema>) {
+  const { pageId, title } = renamePageSchema.parse(input);
+
+  const supabase = await createClient();
+  const {
+    data: { user: caller },
+  } = await supabase.auth.getUser();
+
+  if (!caller) {
+    throw new Error("Not authenticated");
+  }
+
+  const page = await prisma.pages.findUnique({ where: { id: pageId } });
+  if (!page) {
+    throw new Error("Page not found");
+  }
+
+  const callerMembership = await prisma.memberships.findUnique({
+    where: {
+      user_id_workspace_id: { user_id: caller.id, workspace_id: page.workspace_id },
+    },
+  });
+
+  if (!callerMembership || callerMembership.role === "VIEWER") {
+    throw new Error("Viewers cannot rename pages");
+  }
+
+  await prisma.pages.update({
+    where: { id: pageId },
+    data: { title, last_edited_by: caller.id },
+  });
+
+  revalidatePath(`/workspace/${page.workspace_id}`, "layout");
+  if (page.is_public) {
+    revalidatePath(`/p/${pageId}`);
+  }
+}
+
 // ============================================================
 // wouldCreateCycle — the actual cycle-prevention logic, kept
 // separate from movePage so it can be reasoned about (and tested)
