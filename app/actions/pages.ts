@@ -4,6 +4,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
+import { inngest } from "@/lib/inngest/client";
 
 const createPageSchema = z.object({
   workspaceId: z.string().uuid(),
@@ -166,6 +167,17 @@ export async function updatePageContent(input: z.infer<typeof updatePageContentS
       content: { text: content }, // wrapped in an object since the column is JSONB
       last_edited_by: caller.id,  // FR-2.8 — updated_at bumps automatically via our DB trigger
     },
+  });
+
+  // This is the actual connection point we left open — the ONLY place
+  // in the whole app where a page's real content changes, so it's the
+  // only place that should trigger re-embedding. The database write
+  // above already succeeded by the time this fires, so even if the
+  // event fails to send for some reason, the page save itself is safe
+  // and unaffected — this can't roll back or block the save.
+  await inngest.send({
+    name: "page/content.saved",
+    data: { pageId, workspaceId: page.workspace_id, text: content },
   });
 
   revalidatePath(`/workspace/${page.workspace_id}/page/${pageId}`);

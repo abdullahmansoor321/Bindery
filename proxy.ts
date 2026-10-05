@@ -54,7 +54,8 @@ export async function proxy(request: NextRequest) {
     request.nextUrl.pathname.startsWith("/login") ||
     request.nextUrl.pathname.startsWith("/register") ||
     request.nextUrl.pathname.startsWith("/p/") ||
-    request.nextUrl.pathname.startsWith("/auth/");
+    request.nextUrl.pathname.startsWith("/auth/") ||
+    request.nextUrl.pathname.startsWith("/api/inngest");
 
   if (!user && !isPublicRoute) {
     const url = request.nextUrl.clone();

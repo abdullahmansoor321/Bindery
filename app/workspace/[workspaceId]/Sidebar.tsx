@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { PageTree } from "./PageTree";
 import { NewPageForm } from "./NewPageForm";
+import { AskWikiModal } from "./AskWikiModal";
 import {
   Home,
   Users,
@@ -42,6 +43,7 @@ export function Sidebar({
 }: SidebarProps) {
   const [isSwitcherOpen, setIsSwitcherOpen] = useState(false);
   const [isNewRootOpen, setIsNewRootOpen] = useState(false);
+  const [isAskWikiOpen, setIsAskWikiOpen] = useState(false);
   const pathname = usePathname();
 
   const isHome = pathname === `/workspace/${workspace.id}`;
@@ -49,6 +51,7 @@ export function Sidebar({
   const isSettings = pathname === `/workspace/${workspace.id}/settings`;
 
   return (
+    <>
     <aside className="w-[280px] bg-[#F5F2EC] border-r border-[#EAE5DC] flex flex-col justify-between h-screen sticky top-0 shrink-0 select-none overflow-hidden text-[#1F2421]">
       {/* Top Header & Workspace Switcher */}
       <div className="flex flex-col flex-1 overflow-hidden">
@@ -134,9 +137,7 @@ export function Sidebar({
           </button>
 
           <button
-            onClick={() => {
-              alert("Ask the Wiki (AI Q&A) vector streaming will be connected in the upcoming AI release!");
-            }}
+            onClick={() => setIsAskWikiOpen(true)}
             className="w-full h-8 px-2.5 rounded-lg bg-gradient-to-r from-[#DFECE8]/60 to-[#E9F0EC]/60 hover:from-[#DFECE8] hover:to-[#E9F0EC] border border-[#449E73]/20 flex items-center justify-between text-xs font-medium text-[#143325] transition-all"
           >
             <div className="flex items-center gap-2">
@@ -252,5 +253,13 @@ export function Sidebar({
         </form>
       </div>
     </aside>
+
+    <AskWikiModal
+      isOpen={isAskWikiOpen}
+      onClose={() => setIsAskWikiOpen(false)}
+      workspaceId={workspace.id}
+      workspaceName={workspace.name}
+    />
+    </>
   );
 }

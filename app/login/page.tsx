@@ -57,6 +57,7 @@ export default function LoginPage() {
           alt="Bindery Bookbinding Archive"
           fill
           priority
+          sizes="(min-width: 1280px) 580px, 540px"
           className="object-cover object-center"
         />
 
