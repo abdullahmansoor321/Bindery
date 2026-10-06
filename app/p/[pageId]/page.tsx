@@ -23,11 +23,19 @@ export default async function PublicPageView({
     notFound();
   }
 
-  const contentText =
-    typeof page.content === "object" &&
-    page.content !== null &&
-    "text" in page.content
-      ? String((page.content as { text: unknown }).text)
+  // Resolve content from JSONB — supports both the legacy { text } shape
+  // (saved before Tiptap) and the current { html } shape. Reading only
+  // .text here is what made newly-published pages render blank: new saves
+  // have no "text" key at all, so the lookup fell through to "".
+  const rawContent = page.content as Record<string, unknown> | null;
+  const contentHtml =
+    typeof rawContent?.html === "string"
+      ? rawContent.html
+      : typeof rawContent?.text === "string"
+      ? rawContent.text
+          .split("\n")
+          .map((line: string) => (line.trim() ? `<p>${line}</p>` : "<p></p>"))
+          .join("")
       : "";
 
   return (
@@ -81,13 +89,14 @@ export default async function PublicPageView({
           </div>
         </div>
 
-        <article className="prose max-w-none text-[#1F2421] text-base sm:text-lg leading-[1.8] whitespace-pre-wrap font-sans">
-          {contentText || (
-            <p className="text-sm text-[#A3AAA3] italic">
-              This public document currently has no written content.
-            </p>
-          )}
-        </article>
+        <article
+          className="prose max-w-none text-[#1F2421] text-base sm:text-lg leading-[1.8] font-sans"
+          dangerouslySetInnerHTML={{
+            __html:
+              contentHtml ||
+              '<p class="text-sm text-[#A3AAA3] italic">This public document currently has no written content.</p>',
+          }}
+        />
       </main>
 
       {/* Public Footer */}

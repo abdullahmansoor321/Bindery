@@ -57,12 +57,18 @@ export default async function PageDetailView({
   }
 
   const canEdit = callerMembership.role !== "VIEWER";
-  const contentText =
-    typeof page.content === "object" &&
-    page.content !== null &&
-    "text" in page.content
-      ? String((page.content as { text: unknown }).text)
+  // Resolve content from JSONB — supports both legacy { text } and new { html } shapes
+  const rawContent = page.content as Record<string, unknown> | null;
+  const contentHtml =
+    typeof rawContent?.html === "string"
+      ? rawContent.html
+      : typeof rawContent?.text === "string"
+      ? rawContent.text
+          .split("\n")
+          .map((line: string) => (line.trim() ? `<p>${line}</p>` : "<p></p>"))
+          .join("")
       : "";
+  const contentText = contentHtml;
 
   return (
     <div className="flex-1 max-w-4xl w-full mx-auto p-6 sm:p-12 space-y-8">
@@ -146,13 +152,17 @@ export default async function PageDetailView({
         {canEdit ? (
           <EditPageForm pageId={pageId} initialContent={contentText} />
         ) : (
-          <div className="prose max-w-none text-[#1F2421] text-base leading-[1.7] whitespace-pre-wrap font-sans">
-            {contentText || (
+          <>
+            <div
+              className="bindery-editor prose-read"
+              dangerouslySetInnerHTML={{ __html: contentHtml }}
+            />
+            {!contentHtml && (
               <p className="text-sm text-[#A3AAA3] italic">
                 This document is currently empty.
               </p>
             )}
-          </div>
+          </>
         )}
       </main>
     </div>

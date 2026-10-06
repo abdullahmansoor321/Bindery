@@ -5,6 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
 import { inngest } from "@/lib/inngest/client";
+import DOMPurify from "isomorphic-dompurify";
+import { htmlToPlainText } from "@/utils/chunking";
 
 const createPageSchema = z.object({
   workspaceId: z.string().uuid(),
@@ -129,7 +131,7 @@ export async function getChildPages(input: z.infer<typeof getChildPagesSchema>) 
 // ============================================================
 const updatePageContentSchema = z.object({
   pageId: z.string().uuid(),
-  content: z.string(), // plain text for now; Tiptap's JSON shape comes in a later step
+  content: z.string(), // Tiptap HTML output — stored as { html: content } in JSONB
 });
 
 export async function updatePageContent(input: z.infer<typeof updatePageContentSchema>) {
@@ -161,10 +163,21 @@ export async function updatePageContent(input: z.infer<typeof updatePageContentS
     throw new Error("Viewers cannot edit pages");
   }
 
+  // Sanitise at the WRITE path rather than in each renderer. Every page
+  // save funnels through this one action, so cleaning the HTML here
+  // guarantees clean data at rest — both the private viewer and the
+  // public /p/[pageId] route are then safe by default, with no
+  // per-render guard to remember or forget.
+  //
+  // DOMPurify strips <script>, event handlers (onclick/onerror), and
+  // javascript: URLs while preserving the formatting tags Tiptap emits
+  // (<p>, <strong>, <h1>-<h3>, <ul>, <blockquote>, <code>, etc.).
+  const sanitisedHtml = DOMPurify.sanitize(content);
+
   await prisma.pages.update({
     where: { id: pageId },
     data: {
-      content: { text: content }, // wrapped in an object since the column is JSONB
+      content: { html: sanitisedHtml }, // Tiptap HTML stored in JSONB; legacy { text } still readable
       last_edited_by: caller.id,  // FR-2.8 — updated_at bumps automatically via our DB trigger
     },
   });
@@ -175,9 +188,25 @@ export async function updatePageContent(input: z.infer<typeof updatePageContentS
   // above already succeeded by the time this fires, so even if the
   // event fails to send for some reason, the page save itself is safe
   // and unaffected — this can't roll back or block the save.
+  // Note the split between what is STORED and what is EMBEDDED:
+  //
+  //   stored   → sanitisedHtml   (HTML, so editors and readers render
+  //                               formatting correctly)
+  //   embedded → htmlToPlainText (plain prose, so the embedding model
+  //                               encodes meaning, not markup)
+  //
+  // Passing raw HTML here would put tag fragments into page_chunks —
+  // `<p>` appears on every page, which pulls all pages' vectors toward
+  // each other and weakens retrieval — and could split a tag across a
+  // chunk boundary. Keeping the two representations separate is the
+  // whole point.
   await inngest.send({
     name: "page/content.saved",
-    data: { pageId, workspaceId: page.workspace_id, text: content },
+    data: {
+      pageId,
+      workspaceId: page.workspace_id,
+      text: htmlToPlainText(sanitisedHtml),
+    },
   });
 
   revalidatePath(`/workspace/${page.workspace_id}/page/${pageId}`);

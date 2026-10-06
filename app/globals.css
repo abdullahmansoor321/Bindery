@@ -106,3 +106,132 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--text-muted);
 }
+
+/* ============================================================
+   Tiptap / bindery-editor prose styles
+   Used by both the rich-text editor and the read-only view
+   ============================================================ */
+
+.bindery-editor {
+  outline: none;
+  caret-color: var(--brand-forest);
+}
+
+.bindery-editor p {
+  margin: 0 0 0.85em 0;
+  line-height: 1.75;
+  color: var(--text-primary);
+}
+.bindery-editor p:last-child { margin-bottom: 0; }
+
+.bindery-editor h1 {
+  font-size: 1.75rem; font-weight: 700; line-height: 1.2;
+  letter-spacing: -0.02em; margin: 1.5em 0 0.5em;
+  color: var(--text-primary);
+}
+.bindery-editor h2 {
+  font-size: 1.35rem; font-weight: 650; line-height: 1.3;
+  letter-spacing: -0.015em; margin: 1.4em 0 0.45em;
+  color: var(--text-primary);
+}
+.bindery-editor h3 {
+  font-size: 1.1rem; font-weight: 600; line-height: 1.4;
+  letter-spacing: -0.01em; margin: 1.2em 0 0.4em;
+  color: var(--text-primary);
+}
+.bindery-editor h1:first-child,
+.bindery-editor h2:first-child,
+.bindery-editor h3:first-child { margin-top: 0; }
+
+.bindery-editor strong { font-weight: 650; }
+.bindery-editor em { font-style: italic; }
+.bindery-editor u { text-underline-offset: 3px; }
+.bindery-editor s { text-decoration: line-through; opacity: 0.65; }
+
+.bindery-editor code {
+  font-family: var(--font-jetbrains-mono, monospace);
+  font-size: 0.82em;
+  background: var(--accent-mint);
+  color: var(--brand-forest);
+  padding: 0.1em 0.4em;
+  border-radius: 5px;
+  border: 1px solid var(--border-subtle);
+}
+
+.bindery-editor mark {
+  background: #fde68a; color: inherit; border-radius: 3px; padding: 0 2px;
+}
+
+.bindery-editor a {
+  color: var(--brand-emerald); text-decoration: underline;
+  text-underline-offset: 3px; text-decoration-thickness: 1px;
+  transition: color 0.15s;
+}
+.bindery-editor a:hover { color: var(--brand-forest); }
+
+.bindery-editor blockquote {
+  margin: 1.25em 0; padding: 0.85em 1.2em;
+  border-left: 3px solid var(--brand-emerald);
+  background: var(--accent-mint);
+  border-radius: 0 10px 10px 0;
+  color: var(--text-secondary); font-style: italic;
+}
+.bindery-editor blockquote p { margin: 0; }
+
+.bindery-editor hr {
+  border: none; border-top: 1.5px solid var(--border-subtle); margin: 1.75em 0;
+}
+
+.bindery-editor pre {
+  background: #1C2019; color: #D4E8CC; border-radius: 12px;
+  padding: 1rem 1.25rem; margin: 1.2em 0; overflow-x: auto;
+  font-family: var(--font-jetbrains-mono, monospace);
+  font-size: 0.82em; line-height: 1.7;
+  border: 1px solid rgba(255,255,255,0.07);
+}
+.bindery-editor pre code {
+  background: transparent; border: none; padding: 0;
+  font-size: inherit; color: inherit;
+}
+
+.bindery-editor ul,
+.bindery-editor ol { margin: 0.75em 0 0.85em 1.5em; padding: 0; }
+.bindery-editor ul { list-style-type: disc; }
+.bindery-editor ol { list-style-type: decimal; }
+.bindery-editor li { margin: 0.25em 0; line-height: 1.7; color: var(--text-primary); }
+
+/* Task list */
+.bindery-editor ul[data-type="taskList"] { list-style: none; margin-left: 0; }
+.bindery-editor ul[data-type="taskList"] li { display: flex; align-items: flex-start; gap: 0.55rem; }
+.bindery-editor ul[data-type="taskList"] li > label { flex-shrink: 0; margin-top: 3px; }
+.bindery-editor ul[data-type="taskList"] li > label > input[type="checkbox"] {
+  appearance: none; -webkit-appearance: none;
+  width: 15px; height: 15px;
+  border: 1.5px solid var(--brand-emerald); border-radius: 4px;
+  background: transparent; cursor: pointer; position: relative;
+  transition: background 0.15s, border-color 0.15s;
+}
+.bindery-editor ul[data-type="taskList"] li > label > input[type="checkbox"]:checked {
+  background: var(--brand-forest); border-color: var(--brand-forest);
+}
+.bindery-editor ul[data-type="taskList"] li > label > input[type="checkbox"]:checked::after {
+  content: ""; position: absolute;
+  left: 3px; top: 1px; width: 5px; height: 8px;
+  border: 1.5px solid white; border-top: none; border-left: none;
+  transform: rotate(45deg);
+}
+.bindery-editor ul[data-type="taskList"] li[data-checked="true"] > div {
+  opacity: 0.5; text-decoration: line-through;
+}
+.bindery-editor ul[data-type="taskList"] li > div { flex: 1; }
+
+/* Placeholder */
+.bindery-editor .is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left; color: var(--text-muted); pointer-events: none; height: 0;
+}
+
+/* Selection tint */
+.bindery-editor ::selection { background: rgba(68,158,115,0.18); }
+.bindery-editor:focus-visible { outline: none; }
+
